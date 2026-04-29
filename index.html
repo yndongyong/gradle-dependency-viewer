@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Android Gradle 依赖分析器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section id="workspace" class="workspace empty">
+        <aside class="sidebar">
+          <div class="brand">
+            <div class="mark">AG</div>
+            <div>
+              <h1>Gradle 依赖分析器</h1>
+              <p>上传 `dependencies` 输出，定位直接依赖、间接依赖和版本被替换的来源。</p>
+            </div>
+          </div>
+
+          <label class="dropzone" for="fileInput">
+            <input id="fileInput" type="file" accept=".txt,.log,text/plain" />
+            <span>选择或拖拽 dep.txt</span>
+            <small>把 Gradle 依赖 txt/log 文件拖到这里，内容只在浏览器本地解析</small>
+          </label>
+
+          <div class="command-card">
+            <h2>生成依赖文本</h2>
+            <p>在 Android 项目根目录执行命令，把指定 configuration 的依赖树输出到 `dep.txt`。</p>
+            <div class="command-line">
+              <pre><code id="dependencyCommand">./gradlew :app:dependencies --configuration releaseRuntimeClassPath &gt; dep.txt</code></pre>
+              <button id="copyCommandBtn" type="button">复制</button>
+            </div>
+            <small>如果构建变体不同，把 `:app` 和 `releaseRuntimeClassPath` 换成实际 module 与 configuration。</small>
+          </div>
+
+          <div class="guide">
+            <h2>读 Gradle 树的顺序</h2>
+            <ol>
+              <li><b>先看 configuration</b>：通常优先看 `debugRuntimeClasspath` 或 `releaseRuntimeClasspath`。</li>
+              <li><b>第一层是直接依赖</b>：`+---` 顶格出现的库来自你项目的声明、平台 BOM 或 project module。</li>
+              <li><b>缩进越深越间接</b>：父节点引入子节点，路径就是“谁带进来的”。</li>
+              <li><b>`A -> B` 是版本选择</b>：请求的是 A，最终被 Gradle 冲突解决、BOM、约束或强制规则选成 B。</li>
+              <li><b>`(*)` 是重复省略</b>：同一个子树前面已经打印过，Gradle 不再展开。</li>
+              <li><b>`(c)` 是 constraint</b>：版本约束，不一定代表真实 jar 被这个节点单独引入。</li>
+            </ol>
+          </div>
+        </aside>
+
+        <section id="content" class="content empty">
+          <section class="empty-state">
+            <h2>上传 dep.txt 后开始分析</h2>
+            <p>选择或拖拽 Gradle 依赖文本文件，页面会自动解析并显示依赖清单、版本变化和来源路径。</p>
+          </section>
+
+          <div class="toolbar results-only">
+            <div>
+              <h2 id="resultTitle"></h2>
+              <p id="resultSub">上传 `/Users/dong/Documents/workspace/android_workspace/TravelAndroid/dep.txt` 这类文本即可开始。</p>
+            </div>
+            <div class="filters">
+              <select id="configSelect" aria-label="选择 configuration"></select>
+              <input id="searchInput" type="search" placeholder="搜索 group:name 或版本" />
+              <select id="kindFilter" aria-label="筛选类型">
+                <option value="all">全部</option>
+                <option value="conflict">只看版本变化</option>
+                <option value="direct">只看直接依赖</option>
+                <option value="transitive">只看间接依赖</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="stats results-only" id="stats"></div>
+
+          <section class="panel results-only">
+            <div class="panel-head">
+              <div>
+                <h3>依赖清单</h3>
+                <p>点击某一行从右侧打开依赖路径和原始树。</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>库</th>
+                    <th>最终版本</th>
+                    <th>请求版本</th>
+                    <th>来源</th>
+                    <th>深度</th>
+                  </tr>
+                </thead>
+                <tbody id="dependencyRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+        </section>
+
+        <section id="drawerLayer" class="drawer-layer hidden" aria-hidden="true">
+          <button id="drawerMask" class="drawer-mask" type="button" aria-label="关闭依赖详情"></button>
+          <aside class="relationship-drawer" aria-label="依赖详情">
+            <div class="drawer-head">
+              <div>
+                <h2>依赖关系</h2>
+                <p>查看选中库的来源路径和 Gradle 原始树。</p>
+              </div>
+              <button id="closeDrawerBtn" type="button">关闭</button>
+            </div>
+
+            <div class="drawer-grid">
+              <div class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h3>路径图</h3>
+                    <p id="pathHint">选择一个库后显示从直接依赖到它的所有路径。</p>
+                  </div>
+                </div>
+                <div id="pathGraph" class="graph empty">还没有选择依赖</div>
+              </div>
+
+              <div id="drawerResizer" class="drawer-resizer" role="separator" aria-label="调整路径图和原始树宽度" aria-orientation="vertical" tabindex="0"></div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3>原始树</h3>
+                  <p>按 Gradle 输出缩进还原，可展开查看局部关系。</p>
+                </div>
+                <button id="expandBtn">展开两层</button>
+              </div>
+              <div id="treeView" class="tree empty"></div>
+            </div>
+            </div>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
