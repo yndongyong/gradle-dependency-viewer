@@ -28,9 +28,10 @@
             <h2>生成依赖文本</h2>
             <p>在 Android 项目根目录执行命令，把指定 configuration 的依赖树输出到 `dep.txt`。</p>
             <div class="command-line">
-              <pre><code id="dependencyCommand">./gradlew :app:dependencies --configuration releaseRuntimeClassPath &gt; dep.txt</code></pre>
+              <pre><code id="dependencyCommand">./gradlew :app:dependencies &gt; dep.txt</code></pre>
               <button id="copyCommandBtn" type="button">复制</button>
             </div>
+            <small>指定configuration:  ./gradlew :app:dependencies --configuration releaseRuntimeClassPath > dep.txt</small>
             <small>如果构建变体不同，把 `:app` 和 `releaseRuntimeClassPath` 换成实际 module 与 configuration。</small>
           </div>
 
